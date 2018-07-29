@@ -1,0 +1,8 @@
+version: "2"
+
+services:
+  nginx:
+    image: $IMAGE
+    volumes:
+      - ./tests.sh:/usr/local/bin/tests.sh
+      - ./nginx_modules:/home/anaxexp/nginx_modules
