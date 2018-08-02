@@ -259,13 +259,13 @@ COPY templates /etc/gotpl/
 COPY docker-entrypoint.sh /
 
 # Usable SSL certs written here
-RUN mkdir -p /var/www/ssl
+#RUN mkdir -p /var/www/ssl
 # Temporary/work space for keys
-RUN mkdir -p /var/www/acme/ssl
+#RUN mkdir -p /var/www/acme/ssl
 # ACME challenge tokens written here
-RUN mkdir -p /var/www/acme/challenge
+#RUN mkdir -p /var/www/acme/challenge
 # Consul session data written here
-RUN mkdir -p /var/consul
+#RUN mkdir -p /var/consul
 
 WORKDIR $APP_ROOT
 EXPOSE 80
