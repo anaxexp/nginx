@@ -1,20 +1,20 @@
 # Nginx Docker Container Images
 
 [![Build Status](https://travis-ci.org/anaxexp/nginx.svg?branch=master)](https://travis-ci.org/anaxexp/nginx)
-[![Docker Pulls](https://img.shields.io/docker/pulls/anaxexperience/nginx.svg)](https://hub.docker.com/r/anaxexperience/nginx)
-[![Docker Stars](https://img.shields.io/docker/stars/anaxexperience/nginx.svg)](https://hub.docker.com/r/anaxexperience/nginx)
-[![Docker Layers](https://images.microbadger.com/badges/image/anaxexperience/nginx.svg)](https://microbadger.com/images/anaxexperience/nginx)
+[![Docker Pulls](https://img.shields.io/docker/pulls/anaxexp/nginx.svg)](https://hub.docker.com/r/anaxexp/nginx)
+[![Docker Stars](https://img.shields.io/docker/stars/anaxexp/nginx.svg)](https://hub.docker.com/r/anaxexp/nginx)
+[![Docker Layers](https://images.microbadger.com/badges/image/anaxexp/nginx.svg)](https://microbadger.com/images/anaxexp/nginx)
 
 ## Docker Images
 
-❗For better reliability we release images with stability tags (`anaxexperience/nginx:1.14-X.X.X`) which correspond to [git tags](https://github.com/anaxexp/nginx/releases). We strongly recommend using images only with stability tags. 
+❗For better reliability we release images with stability tags (`anaxexp/nginx:1.14-X.X.X`) which correspond to [git tags](https://github.com/anaxexp/nginx/releases). We strongly recommend using images only with stability tags. 
 
 Overview:
 
 * All images are based on Alpine Linux
-* Base image: [anaxexperience/alpine](https://github.com/anaxexp/alpine)
+* Base image: [anaxexp/alpine](https://github.com/anaxexp/alpine)
 * [Travis CI builds](https://travis-ci.org/anaxexp/nginx) 
-* [Docker Hub](https://hub.docker.com/r/anaxexperience/nginx)
+* [Docker Hub](https://hub.docker.com/r/anaxexp/nginx)
 
 Supported tags and respective `Dockerfile` links:
 
@@ -73,10 +73,10 @@ Supported tags and respective `Dockerfile` links:
 
 ## [Installed Nginx Modules]((https://raw.githubusercontent.com/anaxexp/nginx/master/tests/nginx_modules))
 
-## Images based on `anaxexperience/nginx`
+## Images based on `anaxexp/nginx`
 
-* [anaxexperience/php-nginx](https://github.com/anaxexp/php-nginx)
-* [anaxexperience/gitlab-nginx](https://github.com/anaxexp/gitlab-nginx)
+* [anaxexp/php-nginx](https://github.com/anaxexp/php-nginx)
+* [anaxexp/gitlab-nginx](https://github.com/anaxexp/gitlab-nginx)
 
 ## Orchestration actions
 

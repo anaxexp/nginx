@@ -2,7 +2,7 @@
 # we get the examples docker-compose.yml files. Use 'make build/tester'
 # in the makefile at the root of this repo and everything will work
 
-FROM anaxexperience/alpine:3.7
+FROM anaxexp/alpine:3.7
 
 RUN apk update \
     && apk add nodejs python3 openssl bash curl docker

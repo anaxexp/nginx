@@ -1,4 +1,4 @@
-FROM anaxexperience/alpine:3.7
+FROM anaxexp/alpine:3.7
 
 ARG NGINX_VER
 
