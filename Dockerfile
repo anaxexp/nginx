@@ -198,7 +198,7 @@ RUN set -ex; \
     \
     # Cleanup
     apk del --purge .nginx-build-deps; \
-    && rm -rf /tmp/*; \
+    rm -rf /tmp/*; \
     && rm -rf /var/cache/apk/*;
 # Install Consul
 # Releases at https://releases.hashicorp.com/consul
