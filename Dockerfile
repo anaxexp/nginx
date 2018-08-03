@@ -1,4 +1,4 @@
-FROM anaxexp/alpine:3.7
+FROM anaxexp/alpine:3.8
 
 ARG NGINX_VER
 
@@ -7,9 +7,8 @@ ENV NGINX_VER="${NGINX_VER}" \
     MOD_PAGESPEED_VER=1.13.35.2 \
     NGX_PAGESPEED_VER=1.13.35.2 \
     APP_ROOT="/var/www/html" \
-    FILES_DIR="/mnt/files"
-
-COPY patches/modpagespeed /tmp/patches
+    FILES_DIR="/mnt/files" \
+    NGINX_VHOST_PRESET="html"
 
 RUN set -ex; \
     \
@@ -28,13 +27,11 @@ RUN set -ex; \
         sudo; \
     \
     apk add --update --no-cache -t .nginx-build-deps \
-        apache2-dev \
         apr-dev \
         apr-util-dev \
         build-base \
         gd-dev \
         geoip-dev\
-        gettext-dev \
         git \
         gnupg \
         gperf \
@@ -46,32 +43,7 @@ RUN set -ex; \
         libxslt-dev \
         linux-headers \
         pcre-dev \
-        py-setuptools \
         zlib-dev; \
-    \
-    \
-    # Build pagespeed psol
-    git clone -b "v${MOD_PAGESPEED_VER}" \
-        --recurse-submodules \
-        --depth=1 \
-        -c advice.detachedHead=false \
-        -j$(getconf _NPROCESSORS_ONLN) \
-        https://github.com/apache/incubator-pagespeed-mod.git \
-        /tmp/modpagespeed; \
-    \
-    cd /tmp/modpagespeed; \
-    # From https://github.com/We-Amp/ngx-pagespeed-alpine
-    for i in /tmp/patches/*.patch; do printf "\r\nApplying patch ${i%%.*}\r\n"; patch -p1 < $i || exit 1; done; \
-    cd tools/gyp; \
-    ./setup.py install; \
-    cd /tmp/modpagespeed; \
-    build/gyp_chromium --depth=. -D use_system_libs=1; \
-    cd pagespeed/automatic; \
-    make psol BUILDTYPE=Release \
-        CFLAGS+="-I/usr/include/apr-1" \
-        CXXFLAGS+="-I/usr/include/apr-1 -DUCHAR_TYPE=uint16_t" \
-        -j$(getconf _NPROCESSORS_ONLN); \
-    \
     \
     # Get ngx pagespeed module.
     git clone -b "v${NGX_PAGESPEED_VER}-stable" \
@@ -83,23 +55,14 @@ RUN set -ex; \
           https://github.com/apache/incubator-pagespeed-ngx.git \
           /tmp/ngxpagespeed; \
     \
-    mkdir -p /tmp/ngxpagespeed/psol/lib/Release/linux/x64; \
-    mkdir -p /tmp/ngxpagespeed/psol/include/out/Release; \
-    cd /tmp/modpagespeed; \
-    cp -R out/Release/obj /tmp/ngxpagespeed/psol/include/out/Release/; \
-    cp -R pagespeed/automatic/pagespeed_automatic.a /tmp/ngxpagespeed/psol/lib/Release/linux/x64/; \
-    cp -R net \
-          pagespeed \
-          testing \
-          third_party \
-          url \
-          /tmp/ngxpagespeed/psol/include/; \
-    \
+    # Get psol for alpine.
+    url="https://github.com/anaxexp/nginx-alpine-psol/releases/download/${MOD_PAGESPEED_VER}/psol.tar.gz"; \
+    wget -qO- "${url}" | tar xz -C /tmp/ngxpagespeed; \
     \
     # Get ngx uploadprogress module.
     mkdir -p /tmp/ngxuploadprogress; \
     url="https://github.com/masterzen/nginx-upload-progress-module/archive/v${NGINX_UP_VER}.tar.gz"; \
-    wget -qO- "${url}"  | tar xz  --strip-components=1 -C /tmp/ngxuploadprogress; \
+    wget -qO- "${url}" | tar xz --strip-components=1 -C /tmp/ngxuploadprogress; \
     \
     # Download nginx.
     curl -fSL "https://nginx.org/download/nginx-${NGINX_VER}.tar.gz" -o /tmp/nginx.tar.gz; \
@@ -166,6 +129,7 @@ RUN set -ex; \
         /var/cache/nginx \
         /var/lib/nginx; \
     \
+    touch /etc/nginx/upstream.conf; \
     chown -R anaxexp:anaxexp /etc/nginx; \
     \
     install -g nginx -o nginx -d \
@@ -197,62 +161,15 @@ RUN set -ex; \
     } | tee /etc/sudoers.d/anaxexp; \
     \
     # Cleanup
-    apk del --purge .nginx-build-deps;
-# Install Consul
-# Releases at https://releases.hashicorp.com/consul
-RUN export CONSUL_VERSION=0.7.5 \
-    && export CONSUL_CHECKSUM=40ce7175535551882ecdff21fdd276cef6eaab96be8a8260e0599fadb6f1f5b8 \
-    && curl --retry 7 --fail -vo /tmp/consul.zip "https://releases.hashicorp.com/consul/${CONSUL_VERSION}/consul_${CONSUL_VERSION}_linux_amd64.zip" \
-    && echo "${CONSUL_CHECKSUM}  /tmp/consul.zip" | sha256sum -c \
-    && unzip /tmp/consul -d /usr/local/bin \
-    && rm /tmp/consul.zip \
-    && mkdir /config
-
-# Create empty directories for Consul config and data
-RUN mkdir -p /etc/consul \
-    && mkdir -p /var/lib/consul
-
-# Install Consul template
-# Releases at https://releases.hashicorp.com/consul-template/
-RUN export CONSUL_TEMPLATE_VERSION=0.18.3 \
-    && export CONSUL_TEMPLATE_CHECKSUM=caf6018d7489d97d6cc2a1ac5f1cbd574c6db4cd61ed04b22b8db7b4bde64542 \
-    && curl --retry 7 --fail -Lso /tmp/consul-template.zip "https://releases.hashicorp.com/consul-template/${CONSUL_TEMPLATE_VERSION}/consul-template_${CONSUL_TEMPLATE_VERSION}_linux_amd64.zip" \
-    && echo "${CONSUL_TEMPLATE_CHECKSUM}  /tmp/consul-template.zip" | sha256sum -c \
-    && unzip /tmp/consul-template.zip -d /usr/local/bin \
-    && rm /tmp/consul-template.zip
-
-# Add Containerpilot and set its configuration
-ENV CONTAINERPILOT_VER 3.0.0
-ENV CONTAINERPILOT /etc/containerpilot.json5
-
-RUN export CONTAINERPILOT_CHECKSUM=6da4a4ab3dd92d8fd009cdb81a4d4002a90c8b7c \
-    && curl -Lso /tmp/containerpilot.tar.gz \
-         "https://github.com/joyent/containerpilot/releases/download/${CONTAINERPILOT_VER}/containerpilot-${CONTAINERPILOT_VER}.tar.gz" \
-    && echo "${CONTAINERPILOT_CHECKSUM}  /tmp/containerpilot.tar.gz" | sha1sum -c \
-    && tar zxf /tmp/containerpilot.tar.gz -C /usr/local/bin \
-    && rm /tmp/containerpilot.tar.gz
-
-# Add Dehydrated
-RUN export DEHYDRATED_VERSION=v0.3.1 \
-    && curl --retry 8 --fail -Lso /tmp/dehydrated.tar.gz "https://github.com/lukas2511/dehydrated/archive/${DEHYDRATED_VERSION}.tar.gz" \
-    && tar xzf /tmp/dehydrated.tar.gz -C /tmp \
-    && mv /tmp/dehydrated-0.3.1/dehydrated /usr/local/bin \
-    && rm -rf /tmp/dehydrated-0.3.1
-
-# Add jq
-RUN export JQ_VERSION=1.5 \
-    && curl --retry 8 --fail -Lso /usr/local/bin/jq "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64" \
-    && chmod a+x /usr/local/bin/jq
+    apk del --purge .nginx-build-deps; \
+    rm -rf /tmp/*; \
+    rm -rf /var/cache/apk/*
 
 USER anaxexp
 
-# Add our configuration files and scripts
-RUN rm -f /etc/nginx/conf.d/default.conf
-COPY etc/nginx /etc/nginx/templates
 COPY bin /usr/local/bin
 COPY templates /etc/gotpl/
 COPY docker-entrypoint.sh /
-
 
 WORKDIR $APP_ROOT
 EXPOSE 80

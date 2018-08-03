@@ -1,2 +1,0 @@
-
-{{if key "nginx/acme/key"}}{{key "nginx/acme/key"}}{{end}}
