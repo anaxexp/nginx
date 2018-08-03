@@ -251,24 +251,14 @@ USER anaxexp
 
 # Add our configuration files and scripts
 RUN rm -f /etc/nginx/conf.d/default.conf
-COPY etc/acme /etc/acme
-COPY etc/containerpilot.json5 /etc/
 COPY etc/nginx /etc/nginx/templates
 COPY bin /usr/local/bin
 COPY templates /etc/gotpl/
 COPY docker-entrypoint.sh /
 
-# Usable SSL certs written here
-#RUN mkdir -p /var/www/ssl
-# Temporary/work space for keys
-#RUN mkdir -p /var/www/acme/ssl
-# ACME challenge tokens written here
-#RUN mkdir -p /var/www/acme/challenge
-# Consul session data written here
-#RUN mkdir -p /var/consul
 
 WORKDIR $APP_ROOT
 EXPOSE 80
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["/usr/local/bin/containerpilot", "sudo", "nginx"]
+CMD ["sudo", "nginx"]
