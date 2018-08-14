@@ -1,4 +1,4 @@
-FROM anaxexp/alpine:3.8
+FROM anaxexp/alpine:3.8-2.1.0
 
 ARG NGINX_VER
 
