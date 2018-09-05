@@ -1,3 +1,6 @@
+rewrite_log on;
+access_log /var/www/logs/access.log;
+error_log /var/www/logs/error.log;
 {{ if getenv "NGINX_DISABLE_CACHING" }}
 expires -1;
 add_header Pragma "no-cache";

@@ -4,6 +4,28 @@ include fastcgi.conf;
 
 add_header Cache-Control "store, must-revalidate, post-check=0, pre-check=0";
 
+# Cache
+set $skip_cache 0;
+
+# POST requests and urls with a query string should always go to PHP
+if ($request_method = POST) {
+    set $skip_cache 1;
+}   
+if ($query_string != "") {
+    set $skip_cache 1;
+}   
+
+# Don’t cache uris containing the following segments
+if ($request_uri ~* "/wp-admin/|/xmlrpc.php|wp-.*.php|/feed/|index.php|sitemap(_index)?.xml") {
+    set $skip_cache 1;
+}   
+
+# Don’t use the cache for logged in users or recent commenters
+if ($http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_no_cache|wordpress_logged_in") {
+    set $skip_cache 1;
+}
+## End Cache
+
 location = /readme.html {
     return 404;
 }
@@ -22,11 +44,20 @@ location / {
 
 # Admin for subdir multisite.
 if (!-e $request_filename) {
-    rewrite /wp-admin$ $scheme://$host$uri/ permanent;
-    rewrite ^/[_0-9a-zA-Z-]+(/wp-.*) $1 last;
-    rewrite ^/[_0-9a-zA-Z-]+(/.*\.php)$ $1 last;
-}
+    #rewrite /wp-admin$ $scheme://$host$uri/ permanent;
+    #rewrite ^/[_0-9a-zA-Z-]+(/wp-.*) $1 last;
+    #rewrite ^/[_0-9a-zA-Z-]+(/.*\.php)$ $1 last;
+    rewrite ^/(wp-admin/.*)$ /wp/$1 last;
+    rewrite ^/[_0-9a-zA-Z-]+(/wp-admin/.*)$ /wp/$1 last;
 
+    rewrite /wp-admin$ $scheme://$host$uri/ permanent;
+	
+    rewrite ^/[_0-9a-zA-Z-]+(/wp-includes/.*) /wp/$1 last;
+    rewrite ^/(wp-[^/]+\.php)$ /wp/$1 last;
+    rewrite ^/[_0-9a-zA-Z-]+(/wp-.*) $1 last;
+    rewrite ^/[_0-9a-zA-Z-]+(/.*\.php)$ $1 last;    
+}
+rewrite ^/(wp-includes/.*)$ /wp/$1 last;
 # Add trailing slash to */wp-admin requests.
 rewrite /wp-admin$ $scheme://$host$uri/ permanent;
 
@@ -38,4 +69,9 @@ location ~ [^/]\.php(/|$) {
 
     fastcgi_pass php;
     track_uploads {{ getenv "NGINX_TRACK_UPLOADS" "uploads 60s" }};
+}
+
+# Caching (FastCGI) configuration
+location ~ /purge(/.*) {
+    fastcgi_cache_purge WORDPRESS "$scheme$request_method$host$1";
 }
