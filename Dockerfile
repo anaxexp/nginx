@@ -211,7 +211,7 @@ RUN curl --retry 8 --fail -Lso /tmp/dehydrated.tar.gz "https://github.com/lukas2
 RUN curl --retry 8 --fail -Lso /usr/local/bin/jq "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64" \
     && chmod a+x /usr/local/bin/jq
 
-USER anaxexp
+
 
 # Add our configuration files and scripts
 RUN rm -f /etc/nginx/conf.d/default.conf
@@ -231,6 +231,7 @@ RUN mkdir -p /var/www/acme/challenge
 # Consul session data written here
 RUN mkdir -p /var/consul
 
+USER anaxexp
 
 WORKDIR $APP_ROOT
 EXPOSE 80
