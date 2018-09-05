@@ -4,7 +4,7 @@ set -e
 export GIT_BRANCH="${GIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 export TAG="${TAG:-branch-$(basename "$GIT_BRANCH")}"
 export COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-nginx}"
-export COMPOSE_FILE="${COMPOSE_FILE:-./examples/compose/docker-compose.yml}"
+export COMPOSE_FILE="${COMPOSE_FILE:-./examples/anaxexp/docker-compose.yml}"
 
 project="$COMPOSE_PROJECT"
 manifest="$COMPOSE_FILE"
@@ -12,8 +12,14 @@ manifest="$COMPOSE_FILE"
 fail() {
     echo
     echo '------------------------------------------------'
+    echo 'FAILED: dumping logs'
+    echo '------------------------------------------------'
+    anaxexp-compose -p "$project" -f "$manifest" ps
+    anaxexp-compose -p "$project" -f "$manifest" logs
+    echo '------------------------------------------------'
     echo 'FAILED'
     echo "$1"
+    echo '------------------------------------------------'
     exit 1
 }
 
@@ -44,18 +50,17 @@ wait_for_containers() {
     local container count timeout i got
     container="$1"
     count="$2"
-    timeout="${3:-30}" # default 30sec
+    timeout="${3:-60}" # default 60sec
     i=0
-    echo -n "waiting for $container to be Up "
+    echo "waiting for $container to be Up..."
     while [ $i -lt "$timeout" ]; do
-        got=$(docker-compose -p "$project" -f "$manifest" ps "$container" | grep -c "Up")
+        got=$(anaxexp-compose -p "$project" -f "$manifest" ps "$container" | grep -c "Up")
         if [ "$got" -eq "$count" ]; then
-            echo
+            echo "$container reported Up in <= $i seconds"
             return
         fi
         i=$((i+1))
         sleep 1
-        echo -n '.'
     done
     fail "waited for container $container for $timeout seconds but it was not marked 'Up'"
 }
@@ -69,46 +74,45 @@ wait_for_service() {
     count="$2"
     timeout="${3:-30}" # default 30sec
     i=0
-    echo -n "waiting for $count instances of $service to be registered with Consul "
-    consul_ip=$(docker inspect "${project}_consul_1" | json -a NetworkSettings.IPAddress)
+    echo "waiting for $count instances of $service to be registered with Consul..."
+    consul_ip=$(anaxexp ip "${project}_consul_1")
     while [ $i -lt "$timeout" ]; do
         got=$(curl -s "http://${consul_ip}:8500/v1/health/service/${service}?passing" \
                      | json -a Service.Address | wc -l | tr -d ' ')
         if [ "$got" -eq "$count" ]; then
-            echo
+            echo "$service registered in <= $i seconds"
             return
         fi
         i=$((i+1))
         sleep 1
-        echo -n '.'
     done
     fail "waited for service $service for $timeout seconds but it was not registed with Consul"
 }
 
 check_nginx_upstream_matches() {
     local service count timeout i ips got consul_ip
+
     service="$1"
     count="$2"
     timeout="${3:-30}" # default 30sec
     i=0
-    echo -n "waiting for $count instances of $service to be in Nginx upstream "
-    consul_ip=$(docker inspect "${project}_consul_1" | json -a NetworkSettings.IPAddress)
+    echo "waiting for $count instances of $service to be in Nginx upstream..."
+    consul_ip=$(anaxexp ip "${project}_consul_1")
     while [ $i -lt "$timeout" ]; do
         ips=$(curl -s "http://${consul_ip}:8500/v1/health/service/${service}?passing" \
                      | json -a Service.Address | sort)
         ip_count=$(echo "$ips" | wc -l | tr -d ' ')
         if [ "$ip_count" -eq "$count" ]; then
-            got=$(docker exec "${project}_nginx_1" \
+            got=$(anaxexp-docker exec "${project}_nginx_1" \
                                 cat /etc/nginx/conf.d/site.conf \
                          | grep 3001 | tr -d 'serv ' | cut -d':' -f1 | sort)
             if [[ "$ips" == "$got" ]]; then
-                echo
+                echo "settled in <= $i seconds"
                 return
             fi
         fi
         i=$((i+1))
         sleep 1
-        echo -n '.'
     done
     echo
     fail "waited for service $service for $timeout seconds but Nginx did not register upstreams. expected: ${ips} but got: ${got}"
@@ -116,29 +120,53 @@ check_nginx_upstream_matches() {
 
 
 netsplit() {
-    # it's a bit of a pain to netsplit this container without extra privileges,
-    # or doing some non-portable stuff in the underlying VM, so instead we'll
-    # pause the container which will cause its TTL to expire
     echo "netsplitting ${project}_$1"
-    docker pause "${project}_$1"
+    anaxexp-docker exec "${project}_$1" ifconfig eth0 down
 }
 
 heal() {
     echo "healing netsplit for ${project}_$1"
-    docker unpause "${project}_$1"
+    anaxexp-docker exec "${project}_$1" ifconfig eth0 up
 }
 
 
 # --------------------------------------------------------------------
 # Test sections
 
+profile() {
+    echo
+    echo '------------------------------------------------'
+    echo 'setting up profile for tests'
+    echo '------------------------------------------------'
+    echo
+    export ANAXEXP_PROFILE="${ANAXEXP_PROFILE:-us-east-1}"
+    set +e
+    # if we're already set up for Docker this will fail noisily
+    anaxexp profile docker-setup -y "$ANAXEXP_PROFILE" > /dev/null 2>&1
+    set -e
+    anaxexp profile set-current "$ANAXEXP_PROFILE"
+    eval "$(anaxexp env)"
+
+    # print out for profile debugging
+    env | grep DOCKER
+    env | grep SDC
+    env | grep ANAXEXP
+}
+
 run() {
+    echo
+    echo '------------------------------------------------'
+    echo 'cleaning up previous test run'
+    echo '------------------------------------------------'
+    anaxexp-compose -p "$project" -f "$manifest" stop
+    anaxexp-compose -p "$project" -f "$manifest" rm -f
+
     echo
     echo '------------------------------------------------'
     echo 'standing up initial test targets'
     echo '------------------------------------------------'
     echo
-    docker-compose -p "$project" -f "$manifest" up -d
+    anaxexp-compose -p "$project" -f "$manifest" up -d
     wait_for_containers 'consul' 1
     wait_for_containers 'nginx' 1
     wait_for_containers 'backend' 1
@@ -153,8 +181,8 @@ teardown() {
     echo 'tearing down containers'
     echo '------------------------------------------------'
     echo
-    docker-compose -p "$project" -f "$manifest" stop
-    docker-compose -p "$project" -f "$manifest" rm -f
+    anaxexp-compose -p "$project" -f "$manifest" stop
+    anaxexp-compose -p "$project" -f "$manifest" rm -f
 }
 
 scale() {
@@ -163,7 +191,7 @@ scale() {
     echo 'scaling up backends'
     echo '------------------------------------------------'
     echo
-    docker-compose -p "$project" -f "$manifest" scale backend=2
+    anaxexp-compose -p "$project" -f "$manifest" scale backend=2
     wait_for_containers 'backend' 2
     wait_for_service 'backend' 2
 }
@@ -185,6 +213,7 @@ test-netsplit() {
 # --------------------------------------------------------------------
 # Main loop
 
+profile
 run
 scale
 test-netsplit

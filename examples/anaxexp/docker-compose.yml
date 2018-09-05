@@ -1,0 +1,56 @@
+ersion: '2.1'
+
+services:
+  nginx:
+    image: anaxexp/nginx-example:${TAG:-latest}
+    mem_limit: 128m
+    restart: always
+    environment:
+      - CONSUL_AGENT=1
+      - ACME_ENV=staging
+      - ACME_DOMAIN
+      - CONSUL=nc.svc.${ANAXEXP_CNS_SEARCH_DOMAIN_PRIVATE}
+    ports:
+      - 80
+      - 443
+      - 9090
+    labels:
+      - anaxexp.cns.services=nf
+    network_mode: bridge
+
+
+  backend:
+    image: anaxexp/nginx-backend:${TAG:-latest}
+    mem_limit: 128m
+    restart: always
+    environment:
+      - CONSUL=nc.svc.${ANAXEXP_CNS_SEARCH_DOMAIN_PRIVATE}
+    ports:
+      - 3001
+    labels:
+      - anaxexp.cns.services=nb
+    network_mode: bridge
+
+
+  consul:
+    image: anaxexp/consul:0.7.2-r0.8
+    command: >
+      /usr/local/bin/containerpilot
+      /bin/consul agent -server
+        -bootstrap-expect 1
+        -config-dir=/etc/consul
+        -ui-dir /ui
+    restart: always
+    mem_limit: 128m
+    ports:
+      - 8500
+    expose:
+      - 53
+      - 8300
+      - 8301
+      - 8302
+      - 8400
+      - 8500
+    labels:
+      - anaxexp.cns.services=nc
+    network_mode: bridge
